@@ -36,13 +36,9 @@ void flush(lv_display_t *display, const lv_area_t *area, uint8_t *pixels) {
             if (!hub75_geometry::logicalToDma(uint16_t(x), uint16_t(y), physical)) {
                 continue;
             }
-            const uint8_t r5 = uint8_t((packed >> 11) & 0x1f);
-            const uint8_t g6 = uint8_t((packed >> 5) & 0x3f);
-            const uint8_t b5 = uint8_t(packed & 0x1f);
-            panel->drawPixelRGB888(physical.x, physical.y,
-                                  uint8_t((r5 << 3) | (r5 >> 2)),
-                                  uint8_t((g6 << 2) | (g6 >> 4)),
-                                  uint8_t((b5 << 3) | (b5 >> 2)));
+            // LVGL already supplies RGB565: pass its 16-bit pixel directly.
+            // HUB75 DMA internally expands this and generates BCM bitplanes.
+            panel->drawPixel(physical.x, physical.y, packed);
         }
     }
     lv_display_flush_ready(display);
