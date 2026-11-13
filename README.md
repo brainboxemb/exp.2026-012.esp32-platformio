@@ -1,6 +1,6 @@
 # ESP32 PlatformIO — minimal Arduino baseline
 
-Een zelfstandig, reproduceerbaar **PlatformIO-project** voor de klassieke ESP32-WROOM-32 (`esp32dev`). De standaardomgeving blijft een minimale Arduino-referentie. Een tweede, optionele omgeving test afzonderlijk één HUB75-paneel, zonder LVGL of de gedeelde displaycode.
+Een zelfstandig, reproduceerbaar **PlatformIO-project** voor de klassieke ESP32-WROOM-32 (`esp32dev`). De standaardomgeving blijft een minimale Arduino-referentie. Een tweede, optionele omgeving test de **bestaande vijf HUB75-panelen**, zonder LVGL of de gedeelde displaycode.
 
 ## Projectstructuur
 
@@ -9,10 +9,12 @@ Een zelfstandig, reproduceerbaar **PlatformIO-project** voor de klassieke ESP32-
 ├── .github/workflows/build.yml
 ├── .gitignore
 ├── docs/hub75.md
+├── include/hub75_geometry.h
+├── tests/test_hub75_geometry.cpp
 ├── platformio.ini
 └── src/
     ├── main.cpp             # standaard: seriële echo
-    └── hub75_demo.cpp       # optioneel: één HUB75-paneel
+    └── hub75_demo.cpp       # optioneel: bestaande vijf panelen
 ```
 
 De enige firmwarefunctionaliteit is `Serial` op 115200 baud: de ESP32 meldt `ESP32 baseline ready` en echoot alle ontvangen bytes.
@@ -52,7 +54,7 @@ De eerste build downloadt de toolchain en de Arduino-core. Die initiële install
 
 ## Optionele HUB75-test
 
-De standaardbuild (`pio run`) blijft ongewijzigd. Voor **één 64×32-paneel**, zonder Adafruit GFX:
+De standaardbuild (`pio run`) blijft ongewijzigd. Voor **vijf 64×32-panelen** in de bestaande 160×64-opstelling, zonder Adafruit GFX:
 
 ```powershell
 pio run -e esp32dev-hub75
@@ -98,7 +100,7 @@ De werkelijke tijden verschillen per laptop en afhankelijk van toolchain-cache e
 
 1. Baseline compileren, uploaden en seriële echo controleren.
 2. HUB75 DMA-library in een **afzonderlijke omgeving** bouwen en de toename in afhankelijkheden/build meten (deze stap is beschikbaar voor CI- en hardwarekwalificatie).
-3. Eén paneel aansturen, daarna vijf panelen.
+3. De bestaande vijfpanelenopstelling (160×64) testen op kleur, richting, scan en DMA-geheugen.
 4. Vervolgens pas de RGB565-renderer en het seriële displayprotocol uit Experiment 009 integreren.
 
 Houd de baseline klein: voeg nog geen display- of netwerkcode toe voordat de voorgaande stap is geverifieerd.
