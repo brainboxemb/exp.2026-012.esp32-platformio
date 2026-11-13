@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -19,7 +20,73 @@ jobs:
           python-version: '3.12'
       - name: Install PlatformIO
         run: python -m pip install platformio==6.2.0
-      - name: Build firmware
-        run: pio run -e esp32dev
+
+      # Fresh CI runner: platform/toolchain/framework packages are not cached.
+      # This timing therefore includes downloading and installing dependencies.
+      - name: Initial build (including tool downloads)
+        id: initial
+        shell: bash
+        run: |
+          start=$(date +%s%3N)
+          pio run -e esp32dev
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "Initial build: ${elapsed_ms} ms"
+
+      # Rebuild every project object, but keep the downloaded platform and
+      # framework packages installed in the same CI runner.
+      - name: Clean rebuild (installed tools)
+        id: clean
+        shell: bash
+        run: |
+          pio run -e esp32dev -t clean
+          start=$(date +%s%3N)
+          pio run -e esp32dev
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "Clean rebuild: ${elapsed_ms} ms"
+
+      - name: Unchanged incremental build
+        id: incremental
+        shell: bash
+        run: |
+          start=$(date +%s%3N)
+          pio run -e esp32dev
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "No-change build: ${elapsed_ms} ms"
+
       - name: Report firmware size
         run: pio run -e esp32dev -t size
+
+      - name: Record build-time comparison
+        if: always()
+        shell: bash
+        env:
+          INITIAL_MS: ${{ steps.initial.outputs.ms }}
+          CLEAN_MS: ${{ steps.clean.outputs.ms }}
+          INCREMENTAL_MS: ${{ steps.incremental.outputs.ms }}
+        run: |
+          {
+            echo "## ESP32 Arduino PlatformIO build times"
+            echo
+            echo "| Measurement | Seconds | What is included |"
+            echo "| --- | ---: | --- |"
+            if [[ -n "$INITIAL_MS" ]]; then
+              printf '| Initial build | %.2f | Platform/toolchain downloads, install, compile, link |\n' "$(awk "BEGIN {print $INITIAL_MS / 1000}")"
+            else
+              echo "| Initial build | Failed | See build log |"
+            fi
+            if [[ -n "$CLEAN_MS" ]]; then
+              printf '| Clean rebuild | %.2f | Fully rebuild after clean; tools already installed |\n' "$(awk "BEGIN {print $CLEAN_MS / 1000}")"
+            else
+              echo "| Clean rebuild | Failed/not run | See build log |"
+            fi
+            if [[ -n "$INCREMENTAL_MS" ]]; then
+              printf '| No-change build | %.2f | Existing build output reused |\n' "$(awk "BEGIN {print $INCREMENTAL_MS / 1000}")"
+            else
+              echo "| No-change build | Failed/not run | See build log |"
+            fi
+            echo
+            echo "Times are wall-clock measurements on GitHub-hosted Ubuntu; local Windows timings may differ."
+          } >> "$GITHUB_STEP_SUMMARY"
