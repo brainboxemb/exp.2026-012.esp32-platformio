@@ -20,6 +20,22 @@ Bij het opstarten hoort een **limegroene balk met 'LVGL 9.6'** te verschijnen en
 
 De bedrading, paneelmapping en DMA-configuratie zijn ongewijzigd. De HUB75-klok blijft **10 MHz**; `setBrightness8(24)` blijft circa **9,4%**. De native mapper in `include/hub75_geometry.h` voert de RGB565-pixels naar de bestaande elektrische 320×32 DMA-keten.
 
+### RGB565 versus HUB75-kleurdiepte
+
+**LVGL rendert en buffert RGB565 (16 bit per pixel)**. In de flush-callback
+worden de ruwe `uint16_t`-pixels na de coördinatentransformatie rechtstreeks
+met `MatrixPanel_I2S_DMA::drawPixel(x, y, packed565)` doorgestuurd.
+De HUB75-driver biedt inderdaad deze RGB565-pixel-API, ook met `NO_GFX`.
+Hij zet die intern om in RGB-kanaalwaarden en schrijft ze in zijn
+DMA-bitplanes. Een RGB565-buffer wordt dus **niet letterlijk als 16-bit
+signaal naar het paneel gestuurd**: de panelen zijn seriële HUB75-matrices,
+met BCM/PWM voor de helderheid. De ingestelde `PIXEL_COLOR_DEPTH_BITS=6`
+bepaalt hoeveel bitplanes de DMA-driver intern gebruikt.
+
+De afzonderlijke `hub75_demo.cpp` blijft voor eenvoudige volle RGB-kleuren
+`fillScreenRGB888` gebruiken: dat is een kleurtest, geen LVGL-renderpad.
+
+
 ## Bewust minimale LVGL-configuratie
 
 De library staat vast op **Git-tag `v9.6.0`**. Het volledige configuratiebestand `include/lv_conf.h` wordt via `-DLV_CONF_INCLUDE_SIMPLE -Iinclude` aan ALLE LVGL-bronbestanden doorgegeven.
