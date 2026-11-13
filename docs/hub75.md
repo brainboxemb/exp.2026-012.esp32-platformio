@@ -9,7 +9,7 @@ Deze omgeving kwalificeert alleen de afhankelijkheden en DMA-uitvoer voor **éé
 | `esp32dev` (standaard) | `src/main.cpp` | Arduino, seriële echo |
 | `esp32dev-hub75` | `src/hub75_demo.cpp` | Arduino + HUB75 DMA 3.0.10 |
 
-De HUB75-test gebruikt `NO_GFX`. Daardoor is **Adafruit GFX niet nodig**: het voorbeeld gebruikt uitsluitend de native `fillScreenRGB888`-driverfunctie. Het uiteindelijke display kan later nog steeds een RGB565-framebuffer gebruiken.
+De HUB75 DMA-library wordt via de upstream Git-tag `3.0.10` opgehaald; de oude PlatformIO Registry-identificatie `mrfaptastic/...` is niet meer vindbaar. Dit is een vastgepinde versie, geen onbeheerde `master`-dependency.\n\nDe HUB75-test gebruikt `NO_GFX`. Daardoor is **Adafruit GFX niet nodig**: het voorbeeld gebruikt uitsluitend de native `fillScreenRGB888`-driverfunctie. Het uiteindelijke display kan later nog steeds een RGB565-framebuffer gebruiken.
 
 ## Compileren
 
