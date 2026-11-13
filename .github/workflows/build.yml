@@ -56,8 +56,44 @@ jobs:
           echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
           echo "No-change build: ${elapsed_ms} ms"
 
-      - name: Report firmware size
-        run: pio run -e esp32dev -t size
+      # The driver library is an opt-in second environment: same runner,
+      # same installed Arduino toolchain, no GFX or additional application libs.
+      - name: Initial HUB75 build (library install and compilation)
+        id: hub75_initial
+        shell: bash
+        run: |
+          start=$(date +%s%3N)
+          pio run -e esp32dev-hub75
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "HUB75 initial build: ${elapsed_ms} ms"
+
+      - name: Clean HUB75 rebuild (dependencies already installed)
+        id: hub75_clean
+        shell: bash
+        run: |
+          pio run -e esp32dev-hub75 -t clean
+          start=$(date +%s%3N)
+          pio run -e esp32dev-hub75
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "HUB75 clean rebuild: ${elapsed_ms} ms"
+
+      - name: Unchanged HUB75 incremental build
+        id: hub75_incremental
+        shell: bash
+        run: |
+          start=$(date +%s%3N)
+          pio run -e esp32dev-hub75
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "HUB75 no-change build: ${elapsed_ms} ms"
+
+      - name: Report baseline and HUB75 firmware size
+        shell: bash
+        run: |
+          pio run -e esp32dev -t size | tee /tmp/baseline_size.txt
+          pio run -e esp32dev-hub75 -t size | tee /tmp/hub75_size.txt
 
       - name: Record build-time comparison
         if: always()
@@ -66,6 +102,9 @@ jobs:
           INITIAL_MS: ${{ steps.initial.outputs.ms }}
           CLEAN_MS: ${{ steps.clean.outputs.ms }}
           INCREMENTAL_MS: ${{ steps.incremental.outputs.ms }}
+          HUB75_INITIAL_MS: ${{ steps.hub75_initial.outputs.ms }}
+          HUB75_CLEAN_MS: ${{ steps.hub75_clean.outputs.ms }}
+          HUB75_INCREMENTAL_MS: ${{ steps.hub75_incremental.outputs.ms }}
         run: |
           {
             echo "## ESP32 Arduino PlatformIO build times"
@@ -87,6 +126,34 @@ jobs:
             else
               echo "| No-change build | Failed/not run | See build log |"
             fi
+            echo
+            echo
+            echo "### HUB75 DMA extension (same runner)"
+            echo
+            echo "| Measurement | Seconds |"
+            echo "| --- | ---: |"
+            for item in "initial:$HUB75_INITIAL_MS" "clean:$HUB75_CLEAN_MS" "no-change:$HUB75_INCREMENTAL_MS"; do
+              name="${item%%:*}"
+              value="${item#*:}"
+              if [[ -n "$value" ]]; then
+                printf '| %s | %.2f |\n' "$name" "$(awk "BEGIN {print $value / 1000}")"
+              else
+                echo "| $name | Failed/not run |"
+              fi
+            done
+            echo
+            echo "### RAM and flash usage (bytes)"
+            echo
+            echo "| Environment | RAM | Flash |"
+            echo "| --- | ---: | ---: |"
+            for variant in baseline hub75; do
+              file="/tmp/${variant}_size.txt"
+              if [[ -f "$file" ]]; then
+                ram=$(sed -n 's/.*RAM:.*used \([0-9][0-9]*\) bytes.*/\1/p' "$file" | tail -1)
+                flash=$(sed -n 's/.*Flash:.*used \([0-9][0-9]*\) bytes.*/\1/p' "$file" | tail -1)
+                echo "| $variant | ${ram:-n/a} | ${flash:-n/a} |"
+              fi
+            done
             echo
             echo "Times are wall-clock measurements on GitHub-hosted Ubuntu; local Windows timings may differ."
           } >> "$GITHUB_STEP_SUMMARY"
