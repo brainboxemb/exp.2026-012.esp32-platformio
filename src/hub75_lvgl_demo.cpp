@@ -29,7 +29,6 @@ MatrixPanel_I2S_DMA *panel = nullptr;
 void flush(lv_display_t *display, const lv_area_t *area, uint8_t *pixels) {
     // LVGL delivers tightly packed RGB565 rows in a partial draw buffer.
     const auto *rgb565 = reinterpret_cast<const uint16_t *>(pixels);
-    const uint16_t areaWidth = uint16_t(area->x2 - area->x1 + 1);
     for (int16_t y = area->y1; y <= area->y2; ++y) {
         for (int16_t x = area->x1; x <= area->x2; ++x) {
             const uint16_t packed = *rgb565++;
@@ -46,7 +45,6 @@ void flush(lv_display_t *display, const lv_area_t *area, uint8_t *pixels) {
                                   uint8_t((b5 << 3) | (b5 >> 2)));
         }
     }
-    (void)areaWidth;  // Pixel pointer advances exactly once for each pixel.
     lv_display_flush_ready(display);
 }
 
@@ -72,7 +70,7 @@ void createGui() {
     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(screen, 0, 0);
     lv_obj_set_style_pad_all(screen, 0, 0);
-    lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(screen, false);
 
     lv_obj_t *header = lv_obj_create(screen);
     lv_obj_set_pos(header, 0, 0);
@@ -82,7 +80,7 @@ void createGui() {
     lv_obj_set_style_border_width(header, 0, 0);
     lv_obj_set_style_pad_all(header, 0, 0);
     lv_obj_set_style_radius(header, 0, 0);
-    lv_obj_remove_flag(header, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(header, false);
 
     newLabel(header, "LVGL 9.6", 3, 3, 0x101820);
     newLabel(screen, "5x HUB75 / 160x64", 3, 20, 0xF2F2F2);

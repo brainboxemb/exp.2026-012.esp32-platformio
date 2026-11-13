@@ -31,7 +31,32 @@ De library staat vast op **Git-tag `v9.6.0`**. Het volledige configuratiebestand
 - Themes, Flex, Grid, complex software drawing, vector graphics, logging en demos uit.
 - Geen Adafruit GFX, WiFi, externe renderers of ingebouwde LVGL-simulator.
 
-Let op: het uitschakelen van LVGL-modules in `lv_conf.h` minimaliseert vooral de **effectieve code en firmwaregrootte**, niet noodzakelijk het **aantal bronbestanden dat PlatformIO compileert**. Het CI-log laat daarom ook de totale bouwtijd zien. We voeren geen oncontroleerbare patches uit op de upstream-library.
+Een minimale `lv_conf.h` alléén is niet voldoende voor korte buildtijden:
+PlatformIO compileerde aanvankelijk **551 LVGL-bronbestanden**, inclusief
+Linux-drivers, 3D-libraries, thema's, andere widgets en backends.
+
+Daarom gebruikt alleen de LVGL-omgeving de controleerbare PRE-buildmiddleware
+`scripts/lvgl_source_filter.py`. Die heeft een expliciete lijst van vereiste
+LVGL-coremodules, RGB565-softwaredrawing, de UNSCII-8-font en de labelwidget.
+De upstream-library en de geïnstalleerde `library.json` worden **niet**
+aangepast. CI controleert bovendien dat niet onverwacht meer dan 140
+LVGL-bronbestanden worden gebouwd.
+
+### Eerste meting van het optimalisatie-effect
+
+| Meting | Zonder bronfilter | Met bronfilter |
+| --- | ---: | ---: |
+| LVGL-bronbestanden gecompileerd | **551** | **117** |
+| Schone GUI-build (tools geïnstalleerd) | 52,68 s | **21,24 s** |
+| Ongewijzigde GUI-build | 6,81 s | **2,78 s** |
+| Firmwareflash | 728.212 bytes | 728.212 bytes |
+| Statische RAM | 27.820 bytes | 27.820 bytes |
+
+Dit zijn twee afzonderlijke, geslaagde GitHub Actions-runs op Ubuntu;
+de kloktijden zijn dus indicatief. Het resultaat laat zien dat onnodige
+compilatie kan worden weggefilterd zonder het firmwaregedrag te wijzigen.
+De resterende LVGL-core kost nog steeds relatief veel flashgeheugen en
+moet bij uitbreiding worden bewaakt.
 
 ## CI-meting
 

@@ -101,10 +101,25 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s%3N)
-          pio run -e esp32dev-hub75-lvgl
+          set -o pipefail
+          pio run -e esp32dev-hub75-lvgl | tee /tmp/lvgl_initial_build.log
           elapsed_ms=$(( $(date +%s%3N) - start ))
           echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
           echo "LVGL initial build: ${elapsed_ms} ms"
+
+          # Source code is explicitly filtered by scripts/lvgl_source_filter.py.
+          # Fail CI if the entire 551-source upstream package is built again.
+          sources=$(grep -Ec '^Compiling .*\/lvgl\/' /tmp/lvgl_initial_build.log || true)
+          echo "sources=$sources" >> "$GITHUB_OUTPUT"
+          echo "LVGL source objects compiled: $sources"
+          if (( sources < 70 || sources > 140 )); then
+            echo "::error::Unexpected LVGL source count $sources (expected 70..140; unfiltered v9.6.0 builds 551)."
+            exit 1
+          fi
+          if grep -Eq '^Compiling .*\/lvgl\/(drivers|libs|widgets\/button|font\/lv_font_montserrat)' /tmp/lvgl_initial_build.log; then
+            echo "::error::Unwanted LVGL module was compiled; source filter needs review."
+            exit 1
+          fi
 
       - name: Clean LVGL + HUB75 rebuild (dependencies installed)
         id: lvgl_clean
@@ -147,6 +162,7 @@ jobs:
           LVGL_INITIAL_MS: ${{ steps.lvgl_initial.outputs.ms }}
           LVGL_CLEAN_MS: ${{ steps.lvgl_clean.outputs.ms }}
           LVGL_INCREMENTAL_MS: ${{ steps.lvgl_incremental.outputs.ms }}
+          LVGL_COMPILED_SOURCES: ${{ steps.lvgl_initial.outputs.sources }}
         run: |
           {
             echo "## ESP32 Arduino PlatformIO build times"
@@ -197,6 +213,8 @@ jobs:
                 echo "| $name | Failed/not run |"
               fi
             done
+            echo
+            echo "LVGL C/C++ source files compiled: **${LVGL_COMPILED_SOURCES:-n/a}** (maximum 140)."
             echo
             echo "### RAM and flash usage (bytes)"
             echo

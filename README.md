@@ -14,6 +14,7 @@ Een zelfstandig, reproduceerbaar **PlatformIO-project** voor de klassieke ESP32-
 ├── include/lv_conf.h
 ├── tests/test_hub75_geometry.cpp
 ├── platformio.ini
+├── scripts/lvgl_source_filter.py
 └── src/
     ├── main.cpp             # standaard: seriële echo
     ├── hub75_demo.cpp       # optioneel: bestaande vijf panelen
@@ -80,6 +81,8 @@ pio device monitor -b 115200
 
 De GUI gebruikt alleen labels en de UNSCII-8-font, **geen themes, andere widgets,
 Adafruit GFX of extra LVGL-renderers**. Configuratie: `include/lv_conf.h`.
+De extra bronfilter `scripts/lvgl_source_filter.py` zorgt dat PlatformIO
+niet alle 551 LVGL-bestanden bouwt; CI controleert de selectie.
 Zie [docs/lvgl.md](docs/lvgl.md) voor de kwalificatie en de verwachte testweergave.
 
 ## CI en kwalificatie
