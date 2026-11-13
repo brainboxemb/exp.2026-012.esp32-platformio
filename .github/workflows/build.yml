@@ -95,11 +95,59 @@ jobs:
           echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
           echo "HUB75 no-change build: ${elapsed_ms} ms"
 
-      - name: Report baseline and HUB75 firmware size
+      # Third opt-in environment: LVGL 9.6 configured for RGB565/label only.
+      - name: Initial LVGL + HUB75 build (LVGL download and compilation)
+        id: lvgl_initial
+        shell: bash
+        run: |
+          start=$(date +%s%3N)
+          set -o pipefail
+          pio run -e esp32dev-hub75-lvgl | tee /tmp/lvgl_initial_build.log
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "LVGL initial build: ${elapsed_ms} ms"
+
+          # Source code is explicitly filtered by scripts/lvgl_source_filter.py.
+          # Fail CI if the entire 551-source upstream package is built again.
+          sources=$(grep -Ec '^Compiling .*\/lvgl\/' /tmp/lvgl_initial_build.log || true)
+          echo "sources=$sources" >> "$GITHUB_OUTPUT"
+          echo "LVGL source objects compiled: $sources"
+          if (( sources < 70 || sources > 140 )); then
+            echo "::error::Unexpected LVGL source count $sources (expected 70..140; unfiltered v9.6.0 builds 551)."
+            exit 1
+          fi
+          if grep -Eq '^Compiling .*\/lvgl\/(drivers|libs|widgets\/button|font\/lv_font_montserrat)' /tmp/lvgl_initial_build.log; then
+            echo "::error::Unwanted LVGL module was compiled; source filter needs review."
+            exit 1
+          fi
+
+      - name: Clean LVGL + HUB75 rebuild (dependencies installed)
+        id: lvgl_clean
+        shell: bash
+        run: |
+          pio run -e esp32dev-hub75-lvgl -t clean
+          start=$(date +%s%3N)
+          pio run -e esp32dev-hub75-lvgl
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "LVGL clean rebuild: ${elapsed_ms} ms"
+
+      - name: Unchanged LVGL + HUB75 incremental build
+        id: lvgl_incremental
+        shell: bash
+        run: |
+          start=$(date +%s%3N)
+          pio run -e esp32dev-hub75-lvgl
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "LVGL no-change build: ${elapsed_ms} ms"
+
+      - name: Report baseline, HUB75 and LVGL firmware size
         shell: bash
         run: |
           pio run -e esp32dev -t size | tee /tmp/baseline_size.txt
           pio run -e esp32dev-hub75 -t size | tee /tmp/hub75_size.txt
+          pio run -e esp32dev-hub75-lvgl -t size | tee /tmp/lvgl_size.txt
 
       - name: Record build-time comparison
         if: always()
@@ -111,6 +159,10 @@ jobs:
           HUB75_INITIAL_MS: ${{ steps.hub75_initial.outputs.ms }}
           HUB75_CLEAN_MS: ${{ steps.hub75_clean.outputs.ms }}
           HUB75_INCREMENTAL_MS: ${{ steps.hub75_incremental.outputs.ms }}
+          LVGL_INITIAL_MS: ${{ steps.lvgl_initial.outputs.ms }}
+          LVGL_CLEAN_MS: ${{ steps.lvgl_clean.outputs.ms }}
+          LVGL_INCREMENTAL_MS: ${{ steps.lvgl_incremental.outputs.ms }}
+          LVGL_COMPILED_SOURCES: ${{ steps.lvgl_initial.outputs.sources }}
         run: |
           {
             echo "## ESP32 Arduino PlatformIO build times"
@@ -148,11 +200,27 @@ jobs:
               fi
             done
             echo
+            echo "### LVGL 9.6 + HUB75 (same runner)"
+            echo
+            echo "| Measurement | Seconds |"
+            echo "| --- | ---: |"
+            for item in "initial:$LVGL_INITIAL_MS" "clean:$LVGL_CLEAN_MS" "no-change:$LVGL_INCREMENTAL_MS"; do
+              name="${item%%:*}"
+              value="${item#*:}"
+              if [[ -n "$value" ]]; then
+                printf '| %s | %.2f |\n' "$name" "$(awk "BEGIN {print $value / 1000}")"
+              else
+                echo "| $name | Failed/not run |"
+              fi
+            done
+            echo
+            echo "LVGL C/C++ source files compiled: **${LVGL_COMPILED_SOURCES:-n/a}** (maximum 140)."
+            echo
             echo "### RAM and flash usage (bytes)"
             echo
             echo "| Environment | RAM | Flash |"
             echo "| --- | ---: | ---: |"
-            for variant in baseline hub75; do
+            for variant in baseline hub75 lvgl; do
               file="/tmp/${variant}_size.txt"
               if [[ -f "$file" ]]; then
                 ram=$(sed -n 's/.*RAM:.*used \([0-9][0-9]*\) bytes.*/\1/p' "$file" | tail -1)

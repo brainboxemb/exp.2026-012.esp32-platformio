@@ -1,6 +1,6 @@
 # ESP32 PlatformIO — minimal Arduino baseline
 
-Een zelfstandig, reproduceerbaar **PlatformIO-project** voor de klassieke ESP32-WROOM-32 (`esp32dev`). De standaardomgeving blijft een minimale Arduino-referentie. Een tweede, optionele omgeving test de **bestaande vijf HUB75-panelen**, zonder LVGL of de gedeelde displaycode.
+Een zelfstandig, reproduceerbaar **PlatformIO-project** voor de klassieke ESP32-WROOM-32 (`esp32dev`). De standaardomgeving blijft een minimale Arduino-referentie. Twee optionele omgevingen testen eerst de **bestaande vijf HUB75-panelen** zonder GUI en daarna dezelfde panelen met een **minimaal geconfigureerde LVGL 9.6 GUI**. De seriële Arduino-baseline blijft ongewijzigd.
 
 ## Projectstructuur
 
@@ -9,12 +9,16 @@ Een zelfstandig, reproduceerbaar **PlatformIO-project** voor de klassieke ESP32-
 ├── .github/workflows/build.yml
 ├── .gitignore
 ├── docs/hub75.md
+├── docs/lvgl.md
 ├── include/hub75_geometry.h
+├── include/lv_conf.h
 ├── tests/test_hub75_geometry.cpp
 ├── platformio.ini
+├── scripts/lvgl_source_filter.py
 └── src/
     ├── main.cpp             # standaard: seriële echo
-    └── hub75_demo.cpp       # optioneel: bestaande vijf panelen
+    ├── hub75_demo.cpp       # optioneel: bestaande vijf panelen
+    └── hub75_lvgl_demo.cpp  # optioneel: vijf panelen met LVGL
 ```
 
 De enige firmwarefunctionaliteit is `Serial` op 115200 baud: de ESP32 meldt `ESP32 baseline ready` en echoot alle ontvangen bytes.
@@ -28,7 +32,7 @@ De configuratie gebruikt bewust:
 - `framework = arduino`;
 - `platform = espressif32@8.0.0` (vastgepind voor reproduceerbare builds).
 
-De **standaardomgeving** heeft geen `lib_deps`, WiFi-gegevens, HAL-wrapper, eigen CMake-bestanden of LVGL. De losstaande omgeving `esp32dev-hub75` voegt uitsluitend de HUB75 DMA-driver toe.
+De **standaardomgeving** heeft geen `lib_deps`, WiFi-gegevens, HAL-wrapper, eigen CMake-bestanden of LVGL. De losstaande omgeving `esp32dev-hub75` voegt uitsluitend de HUB75 DMA-driver toe. De derde omgeving `esp32dev-hub75-lvgl` voegt alleen de noodzakelijke LVGL-onderdelen toe.
 
 ## Terminalcommando's
 
@@ -63,9 +67,27 @@ pio run -e esp32dev-hub75 -t upload
 
 Zie [de HUB75-kwalificatie](docs/hub75.md) voor de bestaande GPIO-bedrading, voeding en verwachte kleuren.
 
+## Optionele GUI-test (LVGL 9.6)
+
+De volgende stap gebruikt je bestaande vijfpanelenopstelling. De module
+`esp32dev-hub75-lvgl` toont een klein testscherm met limegroene header,
+drie labels en RGB565-uitvoer. De helderheid blijft ongeveer 10%.
+
+```powershell
+pio run -e esp32dev-hub75-lvgl
+pio run -e esp32dev-hub75-lvgl -t upload
+pio device monitor -b 115200
+```
+
+De GUI gebruikt alleen labels en de UNSCII-8-font, **geen themes, andere widgets,
+Adafruit GFX of extra LVGL-renderers**. Configuratie: `include/lv_conf.h`.
+De extra bronfilter `scripts/lvgl_source_filter.py` zorgt dat PlatformIO
+niet alle 551 LVGL-bestanden bouwt; CI controleert de selectie.
+Zie [docs/lvgl.md](docs/lvgl.md) voor de kwalificatie en de verwachte testweergave.
+
 ## CI en kwalificatie
 
-GitHub Actions compileert op Ubuntu zonder aangesloten hardware, vergelijkt de standaardomgeving met de HUB75-test en rapporteert de buildtijd en firmwaregrootte. CI bevestigt alleen **compilatie**, niet dat upload en seriële echo op een fysieke ESP32 werken.
+GitHub Actions compileert op Ubuntu zonder aangesloten hardware, vergelijkt de standaardomgeving met de HUB75-test en de LVGL-GUI-test en rapporteert de buildtijd en firmwaregrootte. CI bevestigt alleen **compilatie**, niet dat upload en seriële echo op een fysieke ESP32 werken.
 
 De Arduino-core bevat intern reeds gecompileerde ESP-IDF-onderdelen. Deze baseline bouwt geen aparte ESP-IDF-applicatie met onnodige frameworkcomponenten.
 
@@ -101,6 +123,7 @@ De werkelijke tijden verschillen per laptop en afhankelijk van toolchain-cache e
 1. Baseline compileren, uploaden en seriële echo controleren.
 2. HUB75 DMA-library in een **afzonderlijke omgeving** bouwen en de toename in afhankelijkheden/build meten (deze stap is beschikbaar voor CI- en hardwarekwalificatie).
 3. De bestaande vijfpanelenopstelling (160×64) testen op kleur, richting, scan en DMA-geheugen.
-4. Vervolgens pas de RGB565-renderer en het seriële displayprotocol uit Experiment 009 integreren.
+4. LVGL als optionele, minimale GUI-library op de vijf panelen kwalificeren.
+5. Pas daarna de bestaande renderer en het seriële displayprotocol uit Experiment 009 integreren.
 
 Houd de baseline klein: voeg nog geen display- of netwerkcode toe voordat de voorgaande stap is geverifieerd.
