@@ -29,7 +29,9 @@ jobs:
         run: |
           start=$(date +%s%3N)
           pio run -e esp32dev
-          echo "ms=$(( $(date +%s%3N) - start ))" >> "$GITHUB_OUTPUT"
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "Initial build: ${elapsed_ms} ms"
 
       # Rebuild every project object, but keep the downloaded platform and
       # framework packages installed in the same CI runner.
@@ -40,7 +42,9 @@ jobs:
           pio run -e esp32dev -t clean
           start=$(date +%s%3N)
           pio run -e esp32dev
-          echo "ms=$(( $(date +%s%3N) - start ))" >> "$GITHUB_OUTPUT"
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "Clean rebuild: ${elapsed_ms} ms"
 
       - name: Unchanged incremental build
         id: incremental
@@ -48,7 +52,9 @@ jobs:
         run: |
           start=$(date +%s%3N)
           pio run -e esp32dev
-          echo "ms=$(( $(date +%s%3N) - start ))" >> "$GITHUB_OUTPUT"
+          elapsed_ms=$(( $(date +%s%3N) - start ))
+          echo "ms=$elapsed_ms" >> "$GITHUB_OUTPUT"
+          echo "No-change build: ${elapsed_ms} ms"
 
       - name: Report firmware size
         run: pio run -e esp32dev -t size
