@@ -23,6 +23,12 @@ jobs:
 
       # Fresh CI runner: platform/toolchain/framework packages are not cached.
       # This timing therefore includes downloading and installing dependencies.
+      - name: Qualify five-panel geometry (native C++)
+        shell: bash
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/test_hub75_geometry.cpp -o /tmp/test_hub75_geometry
+          /tmp/test_hub75_geometry
+
       - name: Initial build (including tool downloads)
         id: initial
         shell: bash
